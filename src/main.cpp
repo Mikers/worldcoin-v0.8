@@ -1848,8 +1848,9 @@ bool SetBestChain(CValidationState &state, CBlockIndex* pindexNew)
     vector<CTransaction> vResurrect;
     BOOST_FOREACH(CBlockIndex* pindex, vDisconnect) {
         CBlock block;
-        if (!block.ReadFromDisk(pindex))
-            return state.Abort(_("Failed to read block"));
+        if (!block.ReadFromDisk(pindex)){
+			printf("pindex value = %s", pindex->GetBlockHash().ToString().c_str());
+		}
         int64 nStart = GetTimeMicros();
         if (!block.DisconnectBlock(state, pindex, view))
             return error("SetBestBlock() : DisconnectBlock %s failed", pindex->GetBlockHash().ToString().c_str());
@@ -1868,8 +1869,6 @@ bool SetBestChain(CValidationState &state, CBlockIndex* pindexNew)
     vector<CTransaction> vDelete;
     BOOST_FOREACH(CBlockIndex *pindex, vConnect) {
         CBlock block;
-        if (!block.ReadFromDisk(pindex))
-            return state.Abort(_("Failed to read block"));
         int64 nStart = GetTimeMicros();
         if (!block.ConnectBlock(state, pindex, view)) {
             if (state.IsInvalid()) {
@@ -1938,7 +1937,7 @@ bool SetBestChain(CValidationState &state, CBlockIndex* pindexNew)
     }
 
     // Update best block in wallet (so we can detect restored wallets)
-    if ((pindexNew->nHeight % 20160) == 0 || (!fIsInitialDownload && (pindexNew->nHeight % 144) == 0))
+    if (!IsInitialBlockDownload())
     {
         const CBlockLocator locator(pindexNew);
         ::SetBestChain(locator);
@@ -3295,9 +3294,10 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
         CAddress addrFrom;
         uint64 nNonce = 1;
         vRecv >> pfrom->nVersion >> pfrom->nServices >> nTime >> addrMe;
-        if (pfrom->nVersion < MIN_PEER_PROTO_VERSION)
+        if (pfrom->nVersion < MIN_PROTO_VERSION)
         {
-            // disconnect from peers older than this proto version
+			// Since May 2013, the protocol is initiated at version 209, and earlier versions are no longer supported.
+            // disconnect from peers older than this proto version.
             printf("partner %s using obsolete version %i; disconnecting\n", pfrom->addr.ToString().c_str(), pfrom->nVersion);
             pfrom->fDisconnect = true;
             return false;
